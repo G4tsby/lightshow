@@ -3,7 +3,15 @@ import os
 import numpy as np
 
 from dotenv import load_dotenv
-from aiohue import HueBridgeV2
+from aiohue.v2.models.light import LightPut
+from aiohue.v2.models.feature import (
+    DimmingFeaturePut,
+    GradientFeatureBase,
+    GradientPoint,
+    ColorFeaturePut,
+    ColorPoint,
+    DynamicsFeaturePut
+)
 
 load_dotenv()
 APPKEY = os.getenv("APPKEY")
@@ -85,11 +93,24 @@ def rgb_to_xy(color_input: tuple | str) -> tuple[float, float]:
     # 분모가 0인 경우를 방지
     denominator = X + Y + Z
     if denominator == 0:
-        # 검은색인 경우, D65 illuminant의 white point 사용
-        x, y = 0.3127, 0.3290
+        # 검은색인 경우, 검은색 좌표 반환 (색상 없음)
+        x, y = 0.0, 0.0
     else:
         x = X / denominator
         y = Y / denominator
     
     return round(x, 4), round(y, 4)
-            
+
+
+def create_gradient_lightput(gradient_points: list[str],
+                  duration: int,
+                  brightness: int) -> LightPut:
+    cie_points = [rgb_to_xy(point) for point in gradient_points]
+    gradint_arr = []
+    for x, y in cie_points:
+        gradint_arr.append(GradientPoint(color=ColorFeaturePut(xy=ColorPoint(x, y))))
+    return LightPut(
+        gradient=GradientFeatureBase(points=gradint_arr),
+        dynamics=DynamicsFeaturePut(duration=duration),
+        dimming=DimmingFeaturePut(brightness=brightness)
+    )
